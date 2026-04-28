@@ -86,12 +86,16 @@ with tab2:
         fig, ax = plt.subplots()
         sns.boxplot(x='drop_15', y='temp_real', data=df_analysis, ax=ax)
         ax.set_title('Suhu saat Penurunan ≥15%')
+        ax.set_xlabel('Penurunan ≥15%')
+        ax.set_ylabel('Temperatur')
         st.pyplot(fig)
 
     with col2:
         fig, ax = plt.subplots()
         sns.boxplot(x='drop_15', y='hum_real', data=df_analysis, ax=ax)
         ax.set_title('Kelembaban saat Penurunan ≥15%')
+        ax.set_xlabel('Penurunan ≥15%')
+        ax.set_ylabel('Kelembapan')
         st.pyplot(fig)
 
 # ========================
@@ -108,6 +112,8 @@ with tab3:
     fig, ax = plt.subplots()
     sns.barplot(x='season_label', y='cnt', hue='workingday', data=season_working, ax=ax)
     ax.set_title('Hari Kerja vs Libur per Musim')
+    ax.set_xlabel('Musim')
+    ax.set_ylabel('Total')
     ax.legend(title='Working Day (1=Ya)')
     st.pyplot(fig)
 
@@ -132,6 +138,8 @@ with tab4:
     fig, ax = plt.subplots()
     sns.barplot(x='time_segment', y='cnt', data=time_segment_analysis, ax=ax)
     ax.set_title('Demand Berdasarkan Segment Waktu')
+    ax.set_xlabel('Pembagian Waktu')
+    ax.set_ylabel('Total')
     st.pyplot(fig)
 
 # ========================
