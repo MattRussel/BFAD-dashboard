@@ -5,8 +5,9 @@ import matplotlib.pyplot as plt
 
 st.set_page_config(layout="wide")
 
-st.title("🚲 Bike Sharing Dashboard")
-st.markdown("Analisis data *Bike Sharing* berbasis data **hourly** dan **daily**")
+st.sidebar.title("🚲 Bike Sharing Dashboard")
+st.sidebar.markdown("Analisis data *Bike Sharing* berbasis data **hourly** dan **daily**")
+st.sidebar.markdown("---")
 
 # ========================
 # LOAD DATA
@@ -24,9 +25,62 @@ def load_data():
 df_day, df_hour = load_data()
 
 # ========================
+# SIDEBAR FILTER
+# ========================
+st.sidebar.header("🔎 Filter Data")
+
+# Mapping musim
+season_map = {1: 'Semi', 2: 'Panas', 3: 'Gugur', 4: 'Dingin'}
+df_day['season_label'] = df_day['season'].map(season_map)
+
+# Filter musim
+selected_seasons = st.sidebar.multiselect(
+    "🌦️ Filter Musim",
+    options=df_day['season_label'].unique(),
+    default=df_day['season_label'].unique()
+)
+
+# Filter hari kerja
+working_filter = st.sidebar.selectbox(
+    "📅 Filter Hari Kerja",
+    options=["Semua", "Hari Kerja", "Libur"]
+)
+
+# Filter tanggal
+min_date = df_day['dteday'].min()
+max_date = df_day['dteday'].max()
+
+date_range = st.sidebar.date_input(
+    "📆 Pilih Rentang Tanggal",
+    [min_date, max_date],
+    min_value=min_date,
+    max_value=max_date
+)
+
+# ========================
+# APPLY FILTER
+# ========================
+start_date, end_date = date_range
+
+df_day_filtered = df_day[
+    (df_day['dteday'] >= pd.to_datetime(start_date)) &
+    (df_day['dteday'] <= pd.to_datetime(end_date)) &
+    (df_day['season_label'].isin(selected_seasons))
+]
+
+# Filter working day
+if working_filter == "Hari Kerja":
+    df_day_filtered = df_day_filtered[df_day_filtered['workingday'] == 1]
+elif working_filter == "Libur":
+    df_day_filtered = df_day_filtered[df_day_filtered['workingday'] == 0]
+
+# Sinkron ke hourly
+df_hour_filtered = df_hour[df_hour['dteday'].isin(df_day_filtered['dteday'])].copy()
+
+# ========================
 # AGREGASI HARIAN
 # ========================
-daily_hour = df_hour.groupby('dteday')['cnt'].sum().reset_index()
+daily_hour = df_hour_filtered.groupby('dteday')['cnt'].sum().reset_index()
 daily_hour['pct_change'] = daily_hour['cnt'].pct_change() * 100
 daily_hour['drop_15'] = daily_hour['pct_change'] <= -15
 
@@ -46,7 +100,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 with tab1:
     st.header("⏰ Pola Penyewaan Berdasarkan Jam")
 
-    hourly_pattern = df_hour.groupby('hr')['cnt'].mean().reset_index()
+    hourly_pattern = df_hour_filtered.groupby('hr')['cnt'].mean().reset_index()
 
     fig, ax = plt.subplots()
     sns.lineplot(x='hr', y='cnt', data=hourly_pattern, marker='o', ax=ax)
@@ -75,7 +129,7 @@ with tab2:
 
     st.subheader("🌡️ Pengaruh Cuaca")
 
-    df_analysis = pd.merge(df_hour, daily_hour[['dteday', 'drop_15']], on='dteday')
+    df_analysis = pd.merge(df_hour_filtered, daily_hour[['dteday', 'drop_15']], on='dteday')
 
     df_analysis['temp_real'] = df_analysis['temp'] * 41
     df_analysis['hum_real'] = df_analysis['hum'] * 100
@@ -87,7 +141,7 @@ with tab2:
         sns.boxplot(x='drop_15', y='temp_real', data=df_analysis, ax=ax)
         ax.set_title('Suhu saat Penurunan ≥15%')
         ax.set_xlabel('Penurunan ≥15%')
-        ax.set_ylabel('Temperatur')
+        ax.set_ylabel('Suhu (Celsius)')
         st.pyplot(fig)
 
     with col2:
@@ -104,16 +158,13 @@ with tab2:
 with tab3:
     st.header("🌦️ Pengaruh Musim & Hari Kerja")
 
-    season_map = {1: 'Semi', 2: 'Panas', 3: 'Gugur', 4: 'Dingin'}
-    df_day['season_label'] = df_day['season'].map(season_map)
-
-    season_working = df_day.groupby(['season_label', 'workingday'])['cnt'].mean().reset_index()
+    season_working = df_day_filtered.groupby(['season_label', 'workingday'])['cnt'].mean().reset_index()
 
     fig, ax = plt.subplots()
     sns.barplot(x='season_label', y='cnt', hue='workingday', data=season_working, ax=ax)
     ax.set_title('Hari Kerja vs Libur per Musim')
     ax.set_xlabel('Musim')
-    ax.set_ylabel('Total')
+    ax.set_ylabel('Rata-rata Penyewaan')
     ax.legend(title='Working Day (1=Ya)')
     st.pyplot(fig)
 
@@ -131,15 +182,15 @@ with tab4:
         else:
             return 'Off Peak'
 
-    df_hour['time_segment'] = df_hour['hr'].apply(categorize_hour)
+    df_hour_filtered['time_segment'] = df_hour_filtered['hr'].apply(categorize_hour)
 
-    time_segment_analysis = df_hour.groupby('time_segment')['cnt'].mean().reset_index()
+    time_segment_analysis = df_hour_filtered.groupby('time_segment')['cnt'].mean().reset_index()
 
     fig, ax = plt.subplots()
     sns.barplot(x='time_segment', y='cnt', data=time_segment_analysis, ax=ax)
     ax.set_title('Demand Berdasarkan Segment Waktu')
     ax.set_xlabel('Pembagian Waktu')
-    ax.set_ylabel('Total')
+    ax.set_ylabel('Rata-rata Penyewaan')
     st.pyplot(fig)
 
 # ========================
